@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -26,7 +27,47 @@ type User struct {
 	Token        string    `json:"token"`
 }
 
-func registerUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func getDB() (*gorm.DB, error) {
+
+	// Init the database
+	db, err := gorm.Open("postgres", "host=localhost port=5432 user=postgres dbname=grpc-interactive password=postgres sslmode=disable")
+	if err != nil {
+		return nil, err
+	}
+
+	// Migrate the schema
+	db.AutoMigrate(&User{})
+	return db, nil
+}
+
+func getUserToken(db *gorm.DB, req registrationRequest) (string, error) {
+
+	// TODO: implement this!
+	// check if user exists; return JWT if so
+	// generate jwt and new user object
+	// add user to db
+
+	return "token", nil
+}
+
+func validateRequest(req registrationRequest) error {
+	// check that payload is complete
+	if req.EmailAddress == "" {
+		return errors.New("Payload missing data: email_address required")
+	} else if req.Passphrase == "" {
+		return errors.New("Payload missing data: passphrase required")
+	}
+
+	// check that payload email_address is valid
+	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	if !re.MatchString(req.EmailAddress) {
+		return errors.New("Payload data invalid: email_address not valid")
+	}
+	// valid registrationRequest
+	return nil
+}
+
+func handler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
 	// unmarshal request body
 	var r registrationRequest
@@ -35,34 +76,27 @@ func registerUser(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResp
 		log.Fatal(err)
 	}
 
-	// check that payload is complete
-	if r.EmailAddress == "" || r.Passphrase == "" {
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       errors.New("Payload missing data").Error(),
-		}, nil
+	if err := validateRequest(r); err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest}, err
 	}
 
-	// TODO: implement this!
-	// check that payload is valid
-	if false {
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       errors.New("Payload data invalid").Error(),
-		}, nil
+	db, err := getDB()
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
 	}
 
-	// check if user exists; return JWT if so
-	// generate jwt and new user object
-	// add user to db
+	token, err := getUserToken(db, r)
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
+	}
 
 	// return jwt and instructions for usage + next step
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
-		Body:       "Hi",
+		Body:       token,
 	}, nil
 }
 
 func main() {
-	lambda.Start(registerUser)
+	lambda.Start(handler)
 }
