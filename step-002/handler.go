@@ -51,16 +51,14 @@ func getUserToken(db *gorm.DB, req registrationRequest) (string, error) {
 }
 
 func validateRequest(req registrationRequest) error {
-	// check that payload is complete
+
+	// check that payload is complete & email_address is valid
+	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
 	if req.EmailAddress == "" {
 		return errors.New("Payload missing data: email_address required")
 	} else if req.Passphrase == "" {
 		return errors.New("Payload missing data: passphrase required")
-	}
-
-	// check that payload email_address is valid
-	re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
-	if !re.MatchString(req.EmailAddress) {
+	} else if !re.MatchString(req.EmailAddress) {
 		return errors.New("Payload data invalid: email_address not valid")
 	}
 	// valid registrationRequest

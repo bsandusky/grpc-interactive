@@ -26,3 +26,9 @@ func TestValidateRequest(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkValidateRequest(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		validateRequest(registrationRequest{"lou@gmail.com", "passphrase"})
+	}
+}
